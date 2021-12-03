@@ -1,0 +1,27 @@
+bundle agent telnet_server_uninstalled
+# @brief Makes sure the telnet server package is not installed on the system.
+{
+  meta:
+      "tags" slist => { "autorun" };
+
+  vars:
+    redhat|suse::
+      "telnet_server_pkg_name" string => "telnet-server";
+    debian::
+      "telnet_server_pkg_name" string => "telnetd";
+
+  classes:
+      "telnet_server_allowed" or => { "hardening_telnet_server_allowed",
+                                      "data:hardening_telnet_server_allowed" };
+
+  packages:
+    !telnet_server_allowed::
+      "${telnet_server_pkg_name}" -> { "CCE-82461-5" }
+        policy => "absent",
+        if => isvariable("telnet_server_pkg_name");
+
+  reports:
+    !telnet_server_allowed::
+      "warning: telnet server package name not known for this platform"
+        unless => isvariable("telnet_server_pkg_name");
+}

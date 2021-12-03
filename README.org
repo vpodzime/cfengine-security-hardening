@@ -1,0 +1,22 @@
+Telnet is a protocol for providing an *insecure* remote virtual terminal access
+to hosts over network. It is generally considered obsolete and dangerous and its
+use has been a root cause of security issues. It should not be used except for
+very specific use cases.
+
+This module makes sure that the Telnet *server* packages are not installed on
+hosts and thus also not running.
+
+* Examples
+
+Example of a /cf-agent/ run on a host that has the =telnet-server= package installed:
+
+#+BEGIN_EXAMPLE
+[root@hub]# cf-agent -KI
+    info: Successfully removed package 'telnet-server'
+#+END_EXAMPLE
+
+* Adding exceptions
+
+If Telnet server packages are really needed on some specific hosts, they can be
+marked as such by defining the =hardening_telnet_server_allowed= class in either
+augments or CMDB.

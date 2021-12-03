@@ -1,13 +1,13 @@
 {
-  "name": "CFEngine Build module template repo",
+  "name": "CFEngine security hardening policies made by vpodzime",
   "type": "module-repo",
-  "description": "This repo only provides 1 module, and is a good starting point for making your own modules",
+  "description": "This repository provides CFEngine security hardening policies made by vpodzime",
   "provides": {
-    "my-module": {
-      "description": "This module has a policy file which reports a string to the terminal, and to the inventory system",
-      "tags": ["inventory"],
+    "telnet-server-not-installed": {
+      "description": "This module has a policy file which makes sure the telnet server package is not installed on the system ",
+      "tags": ["supported", "security", "compliance"],
       "dependencies": ["autorun"],
-      "steps": ["copy ./my_policy.cf services/autorun/my_policy.cf"]
+      "steps": ["copy ./telnet_server_policy.cf services/autorun/telnet_server_policy.cf"]
     }
   }
 }
