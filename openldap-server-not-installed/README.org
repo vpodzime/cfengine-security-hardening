@@ -1,0 +1,25 @@
+LDAP is a protocol often used for user authentication and as storage of user
+information. While packages for it are often needed on hosts so that they can
+query LDAP servers, the LDAP *server* packages are actually only needed on LDAP
+servers. However, it can easily happen that the server packages are installed on
+hosts that don't need them and in order to minimize the attack surface, the
+server packages should not be installed unless explicitly needed.
+
+This module makes sure that the OpenLDAP *server* packages are not installed on
+hosts and thus also not running.
+
+* Examples
+
+Example of a /cf-agent/ run on a host that has the =openldap-servers= package
+installed:
+
+#+BEGIN_EXAMPLE
+[root@hub]# cf-agent -KI
+    info: Successfully removed package 'openldap-servers'
+#+END_EXAMPLE
+
+* Adding exceptions
+
+If OpenLDAP server packages are really needed on some specific hosts (LDAP
+servers), they can be marked as such by defining the
+=hardening_openldap_server_allowed= class in either augments or CMDB.

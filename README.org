@@ -4,3 +4,4 @@ This repository hosts various security hardening policies.
 
 * Modules Provided
 - [[./telnet-server-not-installed][telnet-server-not-installed]]
+- [[./openldap-server-not-installed][openldap-server-not-installed]]

@@ -1,0 +1,29 @@
+bundle agent openldap_server_uninstalled
+# @brief Makes sure the openldap server package is not installed on the system.
+{
+  meta:
+      "tags" slist => { "autorun" };
+
+  vars:
+    redhat::
+      "openldap_server_pkg_name" string => "openldap-servers";
+    debian::
+      "openldap_server_pkg_name" string => "slapd";
+    suse::
+      "openldap_server_pkg_name" string => "openldap2";
+
+  classes:
+      "openldap_server_allowed" or => { "hardening_openldap_server_allowed",
+                                        "data:hardening_openldap_server_allowed" };
+
+  packages:
+    !openldap_server_allowed::
+      "${openldap_server_pkg_name}" -> { "CCE-80293-4" }
+        policy => "absent",
+        if => isvariable("openldap_server_pkg_name");
+
+  reports:
+    !openldap_server_allowed::
+      "warning: openldap server package name not known for this platform"
+        unless => isvariable("openldap_server_pkg_name");
+}
