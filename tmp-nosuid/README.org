@@ -1,0 +1,54 @@
+The presence of SUID and SGID executables should be tightly controlled. Users
+should not be able to execute SUID or SGID binaries from temporary storage
+partitions.
+
+/tmp should be a separate mount point with a =nosuid= mount option that can be
+used to prevent execution of SUID programs in /tmp.
+
+
+* Variables
+
+- =northerntech_security_hardening:tmp_nosuid.action=:
+  controls whether only warnings should be emitted (="warn"=) or actual changes to fix issues should
+  be made (="fix"=)
+
+
+* Examples
+
+Example of a /cf-agent/ run on a host that doesn't have /tmp as a separate
+mount point:
+
+#+BEGIN_EXAMPLE
+[root@hub]# cf-agent -KI
+R: WARNING: /tmp should be a separate mount point so that it can be mounted with the 'nosuid' option
+#+END_EXAMPLE
+
+Example of /cf-agent/ run on a host that has /tmp mounted without the =nosuid=
+option *without* =northerntech_security_hardening:tmp_nosuid.action= set to ="fix"=:
+
+#+BEGIN_EXAMPLE
+[root@hub]# cf-agent -KI
+R: WARNING: /tmp should be mounted with 'nosuid' option
+#+END_EXAMPLE
+
+Example of /cf-agent/ run on a host that has /tmp mounted without the =nosuid=
+option *with* =northerntech_security_hardening:tmp_nosuid.action= set to ="fix"=:
+
+#+BEGIN_EXAMPLE
+[root@hub]# cf-agent -KI
+    info: Executing 'no timeout' ... '/bin/mount -o remount,rw,seclabel,nosuid /tmp/'
+    info: Completed execution of '/bin/mount -o remount,rw,seclabel,nosuid /tmp/'
+R: NOTICE: /tmp was successfully remounted with the 'nosuid' option, make sure the option is added to the default mount options for /tmp
+#+END_EXAMPLE
+
+In case the remount fails for some reason, the following report is printed:
+
+#+BEGIN_EXAMPLE
+R: WARNING: Failed to remount /tmp with the 'nosuid' option. Make sure the option is added to the default mount options for /tmp and reboot the machine
+#+END_EXAMPLE
+
+
+* TODO
+- fix the particular line in /etc/fstab (if any) and add the =nosuid= option there
+- fix the particular line in the systemd mount unit for /tmp (if any) and add
+  the =nosuid= option there
