@@ -16,6 +16,13 @@
       "subdirectory": "openldap-server-not-installed",
       "dependencies": ["autorun"],
       "steps": ["copy ./openldap_server_policy.cf services/autorun/openldap_server_policy.cf"]
+    },
+    "tmp-nosuid": {
+      "description": "This module has a policy file which makes sure /tmp is mounted with the 'nosuid' option",
+      "tags": ["supported", "security", "compliance"],
+      "subdirectory": "tmp-nosuid",
+      "dependencies": ["autorun"],
+      "steps": ["copy ./tmp_nosuid.cf services/autorun/tmp_nosuid.cf"]
     }
   }
 }

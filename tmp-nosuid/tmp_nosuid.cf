@@ -1,0 +1,106 @@
+bundle agent mount_units
+{
+  vars:
+      "mount_units_data" string => execresult("/usr/bin/systemctl list-units -t mount --no-legend", "noshell");
+      "n_mount_units" int => parsestringarray("mount_units_lines",
+                                              "$(mount_units_data)",
+                                              "", ".mount\s+",
+                                              "1024", "4096");
+
+      "mount_units_names_raw" slist => getindices("mount_units_lines");
+      "mount_units_raw[$(mount_units_names_raw)]" string => string_trim("$(mount_units_names_raw)");
+      "mount_units_names" slist => getvalues("mount_units_raw");
+
+      "mount_unit_show_data[$(mount_units_names)]"
+        string => execresult("/usr/bin/systemctl show $(mount_units_names).mount", "noshell");
+      "n_items[$(mount_units_names)]" int => parsestringarray("mount_unit_show_items[$(mount_units_names)]",
+                                                              "$(mount_unit_show_data[$(mount_units_names)])",
+                                                              "", "=",
+                                                              "1024", "4096");
+
+      # "tmp_mount_unit"
+      #   string => "$(mount_units_names)",
+      #   if => strcmp("$(mount_unit_show_items[$(mount_units_names)][Where][1])", "/tmp");
+
+      # "tmp_mount_opts_str" string => "$(mount_unit_show_items[$(tmp_mount_unit)][Options][1])";
+      # "tmp_mount_opts" slist => splitstring("$(tmp_mount_opts_str)", ",", "inf");
+
+  classes:
+      "have_mount_unit_$(mount_unit_show_items[$(mount_units_names)][Where][1])"
+        expression => "any",
+        scope => "namespace";
+
+}
+
+bundle agent tmp_nosuid_option_present(opt_action)
+{
+  vars:
+      "mount_info_data" string => readfile("/etc/mtab", "4096");
+      "mount_info_lines" slist => splitstring("$(mount_info_data)", "\n", "256");
+      "tmp_mount_lines" slist => filter("\w+\s+/tmp\W+.*", "mount_info_lines", "true", "false", "16");
+      "n_tmp_mount_lines" int => length("tmp_mount_lines");
+      "last_tmp_line" string => nth("tmp_mount_lines", int(eval("$(n_tmp_mount_lines) - 1", "math", "infix")));
+
+      "tmp_mount_spec" slist => splitstring("$(last_tmp_line)", "\s+", "6");
+      "tmp_mount_opts_str" string => nth("tmp_mount_spec", "3");
+      "tmp_mount_opts" slist => splitstring("$(tmp_mount_opts_str)", ",", "16");
+
+  classes:
+      "tmp_nosuid_option_warn_only" expression => strcmp("$(opt_action)", "warn");
+
+      "tmp_mounted_with_nosuid" expression => not(none("nosuid", "tmp_mount_opts")),
+        scope => "namespace";
+
+  commands:
+    !tmp_mounted_with_nosuid.!tmp_nosuid_option_warn_only::
+      "/bin/mount -o remount,$(tmp_mount_opts_str),nosuid /tmp/"
+        classes => if_else("remount_succeeded", "remount_failed");
+
+  reports:
+    tmp_nosuid_option_warn_only::
+      "WARNING: /tmp should be mounted with 'nosuid' option";
+
+    remount_succeeded::
+      "NOTICE: /tmp was successfully remounted with the 'nosuid' option, make sure the option is added to the default mount options for /tmp";
+
+    remount_failed::
+      "WARNING: Failed to remount /tmp with the 'nosuid' option. Make sure the option is added to the default mount options for /tmp and reboot the machine";
+}
+
+bundle agent tmp_nosuid
+# @brief Makes sure /tmp is a separate mount point with 'nosuid' mount option (or warns if not)
+{
+  meta:
+      "tags" slist => { "autorun" };
+      "identifiers" slist => { "CCE-80151-4" };
+
+  vars:
+      "action" string => "warn",
+        unless => isvariable("northerntech_security_hardening:$(this.bundle).$(this.promiser)");
+
+      # have_mount classes have the form "have_mount_FSTYPE_MOUNTPOINT",
+      # for example: have_mount_tmpfs__dev_shm, have_mount_tmpfs__tmp, have_mount_xfs__
+      "tmp_mounts" slist => classesmatching("have_mount_[^_]+__tmp");
+      "n_tmp_mounts" int => length("tmp_mounts");
+
+      # same format for classes based on mount points from fstab and mount units
+      "tmp_mounts_fstab" slist => classesmatching("have_fs_[^_]+__tmp");
+      "n_tmp_mounts_fstab" int => length("tmp_mounts_fstab");
+
+  classes:
+      "tmp_nosuid_warn_only" expression => strcmp("$(action)", "warn");
+      "separate_tmp_mount"   expression => isgreaterthan("$(n_tmp_mounts)", 0);
+      "tmp_mount_in_fstab"   expression => isgreaterthan("$(n_tmp_mounts_fstab)", 0);
+      "tmp_mount_unit"       expression => "have_mount_unit__tmp";
+
+  methods:
+    systemd.!tmp_mount_in_fstab::
+      "Load mount units info" usebundle => mount_units;
+
+    separate_tmp_mount::
+      "Check tmp mount opts" usebundle => tmp_nosuid_option_present("$(action)");
+
+  reports:
+    !separate_tmp_mount::
+      "WARNING: /tmp should be a separate mount point so that it can be mounted with the 'nosuid' option";
+}
