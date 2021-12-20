@@ -5,7 +5,7 @@ periodic reports, alerts and compliance reports based on those numbers to be cre
 In Mission Portal, the CFEngine Enterprise UI, you can get reports of available security updates on
 hosts:
 
-[[https://raw.githubusercontent.com/vpodzime/cfengine-security-hardening/master/inventory-yum-update-info/inventory-screenshot.png]]
+[[https://github.com/vpodzime/cfengine-security-hardening/raw/5e9029f0efd75a81b7f9ddb3429df721beb1cd3a/inventory-yum-update-info/inventory-screenshot.png]]
 
 (To see this, go to /Reports/ -> /Inventory/ -> Click the 3 dots at the top of a column -> /Insert Column/
 -> /Security updates/ and similar for the other attributes.)
