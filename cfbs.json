@@ -23,6 +23,13 @@
       "subdirectory": "tmp-nosuid",
       "dependencies": ["autorun"],
       "steps": ["copy ./tmp_nosuid.cf services/autorun/tmp_nosuid.cf"]
+    },
+    "inventory-yum-update-info": {
+      "description": "This module adds information about security updates from 'yum updateinfo' to inventory",
+      "tags": ["supported", "security", "compliance"],
+      "subdirectory": "inventory-yum-update-info",
+      "dependencies": ["autorun"],
+      "steps": ["copy ./inventory_yum_update_info.cf services/autorun/inventory_yum_update_info.cf"]
     }
   }
 }

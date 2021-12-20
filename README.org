@@ -6,3 +6,4 @@ This repository hosts various security hardening policies.
 - [[./telnet-server-not-installed][telnet-server-not-installed]]
 - [[./openldap-server-not-installed][openldap-server-not-installed]]
 - [[./tmp-nosuid][tmp-nosuid]]
+- [[./inventory-yum-update-info][inventory-yum-update-info]]

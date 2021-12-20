@@ -1,0 +1,124 @@
+bundle agent inventory_yum_update_info_data(cache_file_path)
+{
+  vars:
+      # Example data::
+      # Loaded plugins: langpacks, product-id, search-disabled-repos, subscription-manager
+      # Updates Information Summary: updates
+      #     14 Security notice(s)
+      #          2 Critical Security notice(s)
+      #          6 Important Security notice(s)
+      #          5 Moderate Security notice(s)
+      #          1 Low Security notice(s)
+      #     15 Bugfix notice(s)
+      #     12 Enhancement notice(s)
+      # updateinfo summary done
+
+    redhat::
+      "updateinfo_data" string => readfile("$(cache_file_path)", "4096"),
+        if => fileexists("$(cache_file_path)");
+
+      "updateinfo_lines" slist => splitstring("$(updateinfo_data)", "\n", "16");
+
+      "security_notices"           slist => filter("\s*\d+\sSecurity notice.*", "updateinfo_lines", "true", "false", "16");
+      "critical_security_notices"  slist => filter("\s*\d+\sCritical Security notice.*", "updateinfo_lines", "true", "false", "16");
+      "important_security_notices" slist => filter("\s*\d+\sImportant Security notice.*", "updateinfo_lines", "true", "false", "16");
+      "moderate_security_notices"  slist => filter("\s*\d+\sModerate Security notice.*", "updateinfo_lines", "true", "false", "16");
+      "low_security_notices"       slist => filter("\s*\d+\sLow Security notice.*", "updateinfo_lines", "true", "false", "16");
+
+      # "bugfix_notices" slist => filter("\s*\d+\sBugfix notice", "updateinfo_lines", "true", "false", "16");
+      # "enhancement_notices" slist => filter("\s*\d+\sEnhancement notice", "updateinfo_lines", "true", "false", "16");
+
+    have_security_notices::
+      # there should only be one line and the second field is the number (the first is an empty string)
+      "security_notices_info"             string => nth("security_notices", "0");
+      "security_notices_fields"           slist  => splitstring("$(security_notices_info)", "\s+", "8");
+      "n_security_notices"                int    => int(nth("security_notices_fields", "1")),
+        meta => { "inventory", "attribute_name=Security updates" };
+
+    !have_security_notices::
+      "n_security_notices"                int    => "0",
+        meta => { "inventory", "attribute_name=Security updates" };
+
+    have_critical_security_notices::
+      # there should only be one line and the second field is the number (the first is an empty string)
+      "critical_security_notices_info"    string => nth("critical_security_notices", "0");
+      "critical_security_notices_fields"  slist  => splitstring("$(critical_security_notices_info)", "\s+", "8");
+      "n_critical_security_notices"       int    => int(nth("critical_security_notices_fields", "1")),
+        meta => { "inventory", "attribute_name=Critical Security updates" };
+
+    !have_critical_security_notices::
+      "n_critical_security_notices"       int    => "0",
+        meta => { "inventory", "attribute_name=Critical Security updates" };
+
+    have_important_security_notices::
+      # there should only be one line and the second field is the number (the first is an empty string)
+      "important_security_notices_info"   string => nth("important_security_notices", "0");
+      "important_security_notices_fields" slist  => splitstring("$(important_security_notices_info)", "\s+", "8");
+      "n_important_security_notices"      int    => int(nth("important_security_notices_fields", "1")),
+        meta => { "inventory", "attribute_name=Important Security updates" };
+
+    !have_important_security_notices::
+      "n_important_security_notices"      int    => "0",
+        meta => { "inventory", "attribute_name=Important Security updates" };
+
+    have_moderate_security_notices::
+      # there should only be one line and the second field is the number (the first is an empty string)
+      "moderate_security_notices_info"    string => nth("moderate_security_notices", "0");
+      "moderate_security_notices_fields"  slist  => splitstring("$(moderate_security_notices_info)", "\s+", "8");
+      "n_moderate_security_notices"       int    => int(nth("moderate_security_notices_fields", "1")),
+        meta => { "inventory", "attribute_name=Moderate Security updates" };
+
+    !have_moderate_security_notices::
+      "n_moderate_security_notices"       int    => "0",
+        meta => { "inventory", "attribute_name=Moderate Security updates" };
+
+    have_low_security_notices::
+      # there should only be one line and the second field is the number (the first is an empty string)
+      "low_security_notices_info"         string       => nth("low_security_notices", "0");
+      "low_security_notices_fields"       slist        => splitstring("$(low_security_notices_info)", "\s+", "8");
+      "n_low_security_notices"            int          => int(nth("low_security_notices_fields", "1")),
+        meta => { "inventory", "attribute_name=Low Security updates" };
+
+    !have_low_security_notices::
+      "n_low_security_notices"            int    => "0",
+        meta => { "inventory", "attribute_name=Low Security updates" };
+
+  classes:
+      "have_security_notices"           expression => isgreaterthan(length("security_notices"), "0");
+      "have_critical_security_notices"  expression => isgreaterthan(length("critical_security_notices"), "0");
+      "have_important_security_notices" expression => isgreaterthan(length("important_security_notices"), "0");
+      "have_moderate_security_notices"  expression => isgreaterthan(length("moderate_security_notices"), "0");
+      "have_low_security_notices"       expression => isgreaterthan(length("low_security_notices"), "0");
+}
+
+bundle agent update_yum_update_info_cache(cache_file_path)
+{
+  commands:
+      "$(paths.path[yum]) updateinfo summary > $(cache_file_path)"
+        contain => in_shell_and_silent,
+        inform => "false";
+}
+
+bundle agent inventory_yum_update_info
+# @brief Inventories information about available security updates from update info
+{
+  meta:
+      "tags" slist => { "autorun" };
+
+  vars:
+      "cache_file_path" string => "$(sys.statedir)/yum_updateinfo_summary.txt";
+
+      "refresh_updateinfo_interval" int => "60", # default: once per hour
+        unless => isvariable("northerntech_security_hardening:$(this.bundle).$(this.promiser)");
+
+  methods:
+    redhat::
+      "Refresh updateinfo cache"
+        usebundle => update_yum_update_info_cache("$(cache_file_path)"),
+        action => if_elapsed("$(refresh_updateinfo_interval)"),
+        comment => "Only refresh the updateinfo data from time to avoid high load (both local and on repos)";
+
+      "Inventory update info data"
+        usebundle => inventory_yum_update_info_data("$(cache_file_path)"),
+        comment => "Always inventory the data so that the variables don't flip";
+}

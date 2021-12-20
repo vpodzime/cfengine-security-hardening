@@ -1,0 +1,34 @@
+Repositories with updates provide information about types of the updates. Security updates are
+particularly important and adding a number of security updates for each host to inventory allows
+periodic reports, alerts and compliance reports based on those numbers to be created.
+
+In Mission Portal, the CFEngine Enterprise UI, you can get reports of available security updates on
+hosts:
+
+[[https://raw.githubusercontent.com/vpodzime/cfengine-security-hardening/master/inventory-yum-update-info/inventory-screenshot.png]]
+
+(To see this, go to /Reports/ -> /Inventory/ -> Click the 3 dots at the top of a column -> /Insert Column/
+-> /Security updates/ and similar for the other attributes.)
+
+
+* Inventory
+
+The following attributes provide the numbers of available update in each category:
+
+- /Security updates/ ::
+- /Critical Security updates/ ::
+- /Important Security updates/ ::
+- /Moderate Security updates/ ::
+- /Low Security updates/ ::
+
+
+* Variables
+
+- =northerntech_security_hardening:inventory_yum_update_info.refresh_updateinfo_interval= ::
+  controls how often the update info data is refreshed, /default: 60/ (minutes)
+
+
+* Limitations
+
+*As the name of this module suggests, it only supports systems where /yum updateinfo/ provides the
+necessary data.*
