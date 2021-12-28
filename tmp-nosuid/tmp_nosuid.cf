@@ -67,6 +67,21 @@ bundle agent tmp_nosuid_option_present(opt_action)
       "WARNING: Failed to remount /tmp with the 'nosuid' option. Make sure the option is added to the default mount options for /tmp and reboot the machine";
 }
 
+bundle agent tmp_nosuid_in_fstab
+{
+  vars:
+      "tmp_fstab_line" string => "tmpfs$(const.t)/tmp$(const.t)tmpfs$(const.t)defaults,nosuid$(const.t)0 0";
+
+  files:
+    tmp_mount_in_fstab::
+      "/etc/fstab"
+        edit_line => fstab_option_editor("append", "/tmp", "nosuid");
+
+    !tmp_mount_in_fstab::
+      "/etc/fstab"
+        edit_line => lines_present("$(tmp_fstab_line)");
+}
+
 bundle agent tmp_nosuid
 # @brief Makes sure /tmp is a separate mount point with 'nosuid' mount option (or warns if not)
 {
@@ -90,7 +105,8 @@ bundle agent tmp_nosuid
   classes:
       "tmp_nosuid_warn_only" expression => strcmp("$(action)", "warn");
       "separate_tmp_mount"   expression => isgreaterthan("$(n_tmp_mounts)", 0);
-      "tmp_mount_in_fstab"   expression => isgreaterthan("$(n_tmp_mounts_fstab)", 0);
+      "tmp_mount_in_fstab"   expression => isgreaterthan("$(n_tmp_mounts_fstab)", 0),
+        scope => "namespace";
       "tmp_mount_unit"       expression => "have_mount_unit__tmp";
 
   methods:
@@ -99,6 +115,9 @@ bundle agent tmp_nosuid
 
     separate_tmp_mount::
       "Check tmp mount opts" usebundle => tmp_nosuid_option_present("$(action)");
+
+    !tmp_mount_unit.!tmp_nosuid_warn_only::
+      "Ensure 'nosuid' for /tmp in fstab" usebundle => tmp_nosuid_in_fstab;
 
   reports:
     !separate_tmp_mount::
