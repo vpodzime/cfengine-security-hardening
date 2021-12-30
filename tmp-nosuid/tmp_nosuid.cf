@@ -57,7 +57,7 @@ bundle agent tmp_nosuid_option_present(opt_action)
         classes => if_else("remount_succeeded", "remount_failed");
 
   reports:
-    tmp_nosuid_option_warn_only::
+    !tmp_mounted_with_nosuid.tmp_nosuid_option_warn_only::
       "WARNING: /tmp should be mounted with 'nosuid' option";
 
     remount_succeeded::
