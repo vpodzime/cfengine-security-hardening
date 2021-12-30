@@ -61,10 +61,10 @@ bundle agent tmp_nosuid_option_present(opt_action)
       "WARNING: /tmp should be mounted with 'nosuid' option";
 
     remount_succeeded::
-      "NOTICE: /tmp was successfully remounted with the 'nosuid' option, make sure the option is added to the default mount options for /tmp";
+      "NOTICE: /tmp was successfully remounted with the 'nosuid' option";
 
     remount_failed::
-      "WARNING: Failed to remount /tmp with the 'nosuid' option. Make sure the option is added to the default mount options for /tmp and reboot the machine";
+      "WARNING: Failed to remount /tmp with the 'nosuid' option";
 }
 
 bundle agent tmp_nosuid_in_fstab
