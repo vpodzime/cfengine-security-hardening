@@ -18,18 +18,18 @@ bundle agent mount_units
                                                               "", "=",
                                                               "1024", "4096");
 
-      # "tmp_mount_unit"
-      #   string => "$(mount_units_names)",
-      #   if => strcmp("$(mount_unit_show_items[$(mount_units_names)][Where][1])", "/tmp");
-
-      # "tmp_mount_opts_str" string => "$(mount_unit_show_items[$(tmp_mount_unit)][Options][1])";
-      # "tmp_mount_opts" slist => splitstring("$(tmp_mount_opts_str)", ",", "inf");
+      "tmp_mount_unit"
+        string => "$(mount_units_names)",
+        if => strcmp("$(mount_unit_show_items[$(mount_units_names)][Where][1])", "/tmp");
 
   classes:
       "have_mount_unit_$(mount_unit_show_items[$(mount_units_names)][Where][1])"
         expression => "any",
         scope => "namespace";
 
+      "have_tmp_mount_unit"
+        expression => "have_mount_unit__tmp",
+        scope => "namespace";
 }
 
 bundle agent tmp_nosuid_option_present(opt_action)
@@ -57,14 +57,91 @@ bundle agent tmp_nosuid_option_present(opt_action)
         classes => if_else("remount_succeeded", "remount_failed");
 
   reports:
-    tmp_nosuid_option_warn_only::
+    !tmp_mounted_with_nosuid.tmp_nosuid_option_warn_only::
       "WARNING: /tmp should be mounted with 'nosuid' option";
 
     remount_succeeded::
-      "NOTICE: /tmp was successfully remounted with the 'nosuid' option, make sure the option is added to the default mount options for /tmp";
+      "NOTICE: /tmp was successfully remounted with the 'nosuid' option";
 
     remount_failed::
-      "WARNING: Failed to remount /tmp with the 'nosuid' option. Make sure the option is added to the default mount options for /tmp and reboot the machine";
+      "WARNING: Failed to remount /tmp with the 'nosuid' option";
+}
+
+bundle agent tmp_nosuid_in_fstab
+{
+  vars:
+      "tmp_fstab_line" string => "tmpfs$(const.t)/tmp$(const.t)tmpfs$(const.t)defaults,nosuid$(const.t)0 0";
+
+  files:
+    tmp_mount_in_fstab::
+      "/etc/fstab"
+        edit_line => fstab_option_editor("append", "/tmp", "nosuid");
+
+    !tmp_mount_in_fstab::
+      "/etc/fstab"
+        edit_line => lines_present("$(tmp_fstab_line)");
+}
+
+bundle agent tmp_nosuid_in_mount_unit
+{
+  vars:
+      "tmp_mount_unit_path" string => ifelse(fileexists("/etc/systemd/system/$(mount_units.tmp_mount_unit).mount"),
+                                             "/etc/systemd/system/$(mount_units.tmp_mount_unit).mount",
+                                             "/usr/lib/systemd/system/$(mount_units.tmp_mount_unit).mount");
+      "tmp_mount_unit_definition" string => readfile("$(tmp_mount_unit_path)", "4096");
+      "tmp_mount_unit_definition_lines" slist => splitstring("$(tmp_mount_unit_definition)", "\n", 256);
+      "tmp_mount_unit_options_lines" slist => grep("Options=.+", "tmp_mount_unit_definition_lines");
+
+      "tmp_mount_unit_options_line" string => "$(tmp_mount_unit_options_lines)", # the only/last one
+        if => isgreaterthan(length("tmp_mount_unit_options_lines"), "0");
+      "tmp_mount_opts_str" string => string_replace("$(tmp_mount_unit_options_line)", "Options=", ""),
+        if => isvariable("tmp_mount_unit_options_line");
+      "tmp_mount_opts" slist => splitstring("$(tmp_mount_opts_str)", ",", "inf"),
+        if => isvariable("tmp_mount_opts_str");
+
+      "new_opts" string => ifelse(isvariable("tmp_mount_opts_str"),
+                                  "$(tmp_mount_opts_str),nosuid",
+                                  "defaults,nosuid");
+      "mount_unit_data[Mount][Options]" string => "$(new_opts)";
+
+  classes:
+      "nosuid_missing_in_mount_unit" expression => none("nosuid", "tmp_mount_opts");
+
+  files:
+    nosuid_missing_in_mount_unit::
+      "/etc/systemd/system/$(mount_units.tmp_mount_unit).mount"
+        copy_from => seed_cp("/usr/lib/systemd/system/$(mount_units.tmp_mount_unit).mount"),
+        handle => "seed_tmp_mount_unit_from_default";
+
+      # set_variable_values_ini() fails because the options themselves have key=value pairs
+      # "/etc/systemd/system/$(mount_units.tmp_mount_unit).mount"
+      #   edit_line => set_variable_values_ini("$(this.bundle).mount_unit_data", "Mount"),
+      #   handle => "add_nosuid_to_tmp_mount_unit";
+
+      "/etc/systemd/system/$(mount_units.tmp_mount_unit).mount"
+        edit_line => mount_unit_options("$(new_opts)"),
+        if => none("nosuid", "tmp_mount_opts"), # prevents second pass from adding another line
+        handle => "nosuid_in_the_tmp_mount_unit",
+        classes => results("bundle", "$(this.handle)");
+
+  commands:
+    nosuid_in_the_tmp_mount_unit_repaired::
+      "/usr/bin/systemctl daemon-reload";
+}
+
+bundle edit_line mount_unit_options(options)
+{
+  delete_lines:
+      "Options=.*";
+
+  insert_lines:
+      "Options=$(options)" location => mount_section;
+}
+
+body location mount_section
+{
+    select_line_matching => "\[Mount\]";
+    before_after => "after";
 }
 
 bundle agent tmp_nosuid
@@ -90,8 +167,8 @@ bundle agent tmp_nosuid
   classes:
       "tmp_nosuid_warn_only" expression => strcmp("$(action)", "warn");
       "separate_tmp_mount"   expression => isgreaterthan("$(n_tmp_mounts)", 0);
-      "tmp_mount_in_fstab"   expression => isgreaterthan("$(n_tmp_mounts_fstab)", 0);
-      "tmp_mount_unit"       expression => "have_mount_unit__tmp";
+      "tmp_mount_in_fstab"   expression => isgreaterthan("$(n_tmp_mounts_fstab)", 0),
+        scope => "namespace";
 
   methods:
     systemd.!tmp_mount_in_fstab::
@@ -99,6 +176,12 @@ bundle agent tmp_nosuid
 
     separate_tmp_mount::
       "Check tmp mount opts" usebundle => tmp_nosuid_option_present("$(action)");
+
+    !have_tmp_mount_unit.!tmp_nosuid_warn_only::
+      "Ensure 'nosuid' for /tmp in fstab" usebundle => tmp_nosuid_in_fstab;
+
+    have_tmp_mount_unit.!tmp_nosuid_warn_only::
+      "Ensure 'nosuid' for /tmp in its mount unit" usebundle => tmp_nosuid_in_mount_unit;
 
   reports:
     !separate_tmp_mount::

@@ -32,13 +32,37 @@ R: WARNING: /tmp should be mounted with 'nosuid' option
 #+END_EXAMPLE
 
 Example of /cf-agent/ run on a host that has /tmp mounted without the =nosuid=
-option *with* =northerntech_security_hardening:tmp_nosuid.action= set to ="fix"=:
+option using a line in /etc/fstab *with*
+=northerntech_security_hardening:tmp_nosuid.action= set to ="fix"=:
+
+#+BEGIN_EXAMPLE
+[root@hub]# cf-agent -KI
+    info: Completed execution of '/bin/mount -o remount,rw,seclabel,relatime,nosuid /tmp/'
+R: NOTICE: /tmp was successfully remounted with the 'nosuid' option
+    info: Appended field sub-value 'nosuid' in '/etc/fstab'
+    info: fields_edit promise '(?!#)\S+\s+/tmp\s.+' repaired
+    info: Edited file '/etc/fstab'
+#+END_EXAMPLE
+
+Example of /cf-agent/ run on a host that has /tmp mounted without the =nosuid=
+option using a system .mount unit *with*
+=northerntech_security_hardening:tmp_nosuid.action= set to ="fix"=:
 
 #+BEGIN_EXAMPLE
 [root@hub]# cf-agent -KI
     info: Executing 'no timeout' ... '/bin/mount -o remount,rw,seclabel,nosuid /tmp/'
     info: Completed execution of '/bin/mount -o remount,rw,seclabel,nosuid /tmp/'
-R: NOTICE: /tmp was successfully remounted with the 'nosuid' option, make sure the option is added to the default mount options for /tmp
+R: NOTICE: /tmp was successfully remounted with the 'nosuid' option
+    info: Copied file '/usr/lib/systemd/system/tmp.mount' to '/etc/systemd/system/tmp.mount.cfnew' (mode '600')
+    info: Moved '/etc/systemd/system/tmp.mount.cfnew' to '/etc/systemd/system/tmp.mount'
+    info: Updated file '/etc/systemd/system/tmp.mount' from 'localhost:/usr/lib/systemd/system/tmp.mount'
+    info: Deleted the promised line 1 'Options=mode=1777,strictatime' from /etc/systemd/system/tmp.mount
+    info: delete_lines promise 'Options=.*' repaired
+    info: Inserted the promised line 'Options=mode=1777,strictatime,nosuid' into '/etc/systemd/system/tmp.mount' after locator
+    info: insert_lines promise 'Options=mode=1777,strictatime,nosuid' repaired
+    info: Edited file '/etc/systemd/system/tmp.mount'
+    info: Executing 'no timeout' ... '/usr/bin/systemctl daemon-reload'
+    info: Completed execution of '/usr/bin/systemctl daemon-reload'
 #+END_EXAMPLE
 
 In case the remount fails for some reason, the following report is printed:
@@ -47,8 +71,3 @@ In case the remount fails for some reason, the following report is printed:
 R: WARNING: Failed to remount /tmp with the 'nosuid' option. Make sure the option is added to the default mount options for /tmp and reboot the machine
 #+END_EXAMPLE
 
-
-* TODO
-- fix the particular line in /etc/fstab (if any) and add the =nosuid= option there
-- fix the particular line in the systemd mount unit for /tmp (if any) and add
-  the =nosuid= option there
