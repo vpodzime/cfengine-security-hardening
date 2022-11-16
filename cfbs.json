@@ -3,10 +3,10 @@
   "type": "module-repo",
   "description": "This repository provides CFEngine security hardening policies made by vpodzime",
   "provides": {
-    "telnet-server-not-installed": {
+    "uninstall-telnet-server": {
       "description": "This module has a policy file which makes sure the telnet server package is not installed on the system ",
       "tags": ["supported", "security", "compliance"],
-      "subdirectory": "telnet-server-not-installed",
+      "subdirectory": "uninstall-telnet-server",
       "dependencies": ["autorun"],
       "steps": ["copy ./telnet_server_policy.cf services/autorun/telnet_server_policy.cf"]
     },
